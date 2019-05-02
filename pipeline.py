@@ -5,6 +5,8 @@ version 0.0
 '''
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from scipy import stats
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
@@ -46,6 +48,7 @@ def explore(df, exclude=''):
         current = df[col_name].dropna()
         outliers = current[(np.abs(stats.zscore(current)) > 5)] #find values 5+ sds
         if not outliers.empty:
+            sns.distplot(df[col_name], hist=False, rug=True)
             print(col_name, 'has possible outliers', outliers.shape[0], '\n')
 
 #pre-process data
