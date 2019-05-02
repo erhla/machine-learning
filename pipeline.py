@@ -3,14 +3,21 @@ pipeline.py is a machine learning pipeline
 Eric Langowski
 version 0.0
 '''
+
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, ParameterGrid
 from sklearn.metrics import accuracy_score
-from sklearn import tree
+from sklearn import tree, svm
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, BaggingClassifier, AdaBoostClassifier
+
+#Add boosting and bagging
 
 #read/load data
 def read_load(file_path):
@@ -43,7 +50,10 @@ def explore(df, exclude=''):
         filtered = series[(abs(series) >= 0.25) & (abs(series) != 1.0)]
         if not filtered.empty:
             print('correlation with:', col_name, '\n\n', filtered, '\n\n')
-
+    plt.matshow(corrs)
+    plt.xticks(range(len(corrs.columns)), corrs.columns)
+    plt.yticks(range(len(corrs.columns)), corrs.columns)
+    plt.show() #Correlation Graphs
     for col_name in df.columns: #check for outliers
         current = df[col_name].dropna()
         outliers = current[(np.abs(stats.zscore(current)) > 5)] #find values 5+ sds
@@ -109,6 +119,45 @@ def generate_features(df, col_name, feature_type, division_num=4):
             print('dummy created for', col_name)
     return df
 
+
+def define_models(df, X_cols, y_col, test_size):
+    models = {'RF': RandomForestClassifier(),
+              'LR': LogisticRegression(),
+              'SVM': svm.SVC(),
+              'DT': tree.DecisionTreeClassifier(),
+              'KNN': KNeighborsClassifier(),
+              'GB': GradientBoostingClassifier(),
+              'BC': BaggingClassifier(tree.DecisionTreeClassifier()),
+              'ABC': AdaBoostClassifier(tree.DecisionTreeClassifier())
+              }
+    parameters = {
+            'RF': {'n_estimators':[10, 100], 'max_depth':[5,20], 'min_samples_split':[10]},
+            'LR': {'penalty':['l1', 'l2'], 'C':[0.001, 0.1, 1]},
+            'SVM': {'C': [0.001, 0.1, 1], 'kernel': ['linear']},
+            'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [5, 10, 20], 'min_samples_split': [10]},
+            'KNN': {'n_neighbors': [1, 10, 100], 'weights': ['uniform', 'distance'], 'algorithm': ['auto']},
+            'GB': {'n_estimators': [10, 100], 'learning_rate' : [0.001, 0.1], 'subsample' : [0.1, 1.0], 'max_depth': [5, 50]},
+            'BC': {'n_estimators': [10, 100, 10000]},
+            'ABC': {'algorithm': ['SAMME'], 'n_estimators': [10, 100, 10000]}
+            }
+    X = df[X_cols]
+    Y = df[y_col]
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=test_size)
+
+    for model_type in models:
+        for p in ParameterGrid(parameters[model_type]):
+            new_model = models[model_type]
+            new_model.set_params(**p)
+            
+            evaluate_classifier(new_model, x_train, x_test, y_train, y_test)
+            
+        
+        
+    pass
+    
+
+
+
 #build classifier
 def build_classifier(df, outcome_col, test_size, max_depth, min_split_size):
     '''
@@ -138,7 +187,7 @@ def build_classifier(df, outcome_col, test_size, max_depth, min_split_size):
     return dt_tree, x_test, y_test
 
 #evaluate classifier
-def evaluate_classifier(fitted_tree, x_test, y_test):
+def evaluate_classifier(model, x_train, x_test, y_train, y_test):
     '''
     evaluate_classifier takes a fitted tree and testing data
     and evaluates based on accuracy
@@ -148,6 +197,12 @@ def evaluate_classifier(fitted_tree, x_test, y_test):
         x_test: (df) feature testing data
         y_test: (df) outcome testing data
     '''
+
+    
+    for clf in [model, bagged, boosted]:
+        clf.fit(x_train, y_train)
+        
+    
     predicted = fitted_tree.predict(x_test)
     score = accuracy_score(y_test, predicted)
     print('model has accuracy', score)
