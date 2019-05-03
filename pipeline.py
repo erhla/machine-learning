@@ -187,7 +187,7 @@ def build_models(df, X_cols, y_col, models_to_run='all'):
                 for metric in evals:
                     current[metric] = evals[metric]
                 results.append(current)
-                print(split_date, model_type)
+        print(split_date, 'completed')
 
     return pd.DataFrame.from_records(results)
 

@@ -16,4 +16,10 @@ Files:
 - pipeline.py
 - hw2_financialdistress.py (sample code to run pipeline)
 - hw2_writeup.ipynb (writeup and executed sample code)
+
+### HW 3 Submission Information
+Files:
+- pipeline.py
+- hw3_donorschoose.py (sample code to run pipeline)
+- hw3_writeup.ipynb (writeup and executed sample code)
  
