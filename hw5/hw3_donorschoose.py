@@ -42,5 +42,5 @@ for train_start in train_start_dates:
     results.append(eval_metrics)
     
 total = pd.concat(results)
-total.to_csv('example.csv')
+total.to_excel('results.xlsx')
     
