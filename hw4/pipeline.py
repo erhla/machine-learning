@@ -269,10 +269,7 @@ def evaluate_classifier(y_test, y_test_predicted):
     results['pr_curve'] = precision_recall_curve(y_test, y_test_predicted)
     results['f1_score'] = f1
     return results
-'''
-the following functions are for unsupervised learning (kmeans) and should not
-be used for any supervised learning
-'''
+
 def create_clusters(df, x_cols, k):
     '''
     creates clusters for given features and k total clusters
