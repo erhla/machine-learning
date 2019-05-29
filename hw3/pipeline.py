@@ -1,7 +1,7 @@
 '''
 pipeline.py is a machine learning pipeline
 Eric Langowski
-version 0.0
+version 0.1
 '''
 
 

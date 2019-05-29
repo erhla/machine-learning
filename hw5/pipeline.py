@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 from sklearn.model_selection import ParameterGrid
-from sklearn.metrics import f1_score, recall_score, precision_score, roc_auc_score, precision_recall_curve
+from sklearn.metrics import recall_score, precision_score, roc_auc_score, precision_recall_curve
 from sklearn import tree, svm
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
@@ -17,7 +17,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, \
                                 BaggingClassifier, AdaBoostClassifier
-
 #read/load data
 def read_load(file_path):
     '''
@@ -258,16 +257,14 @@ def evaluate_classifier(y_test, y_test_predicted):
         precision at different levels, recall at different levels,
         area under curve, and precision-recall curves).
     '''
-    f1 = f1_score(y_test, y_test_predicted)
     results = {}
     results['baseline'] = y_test.mean()
-    k_lst = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
+    k_lst = [1, 2, 5, 10, 20, 30, 50, 75, 100] #percent cutoffs
     for k in k_lst:
         results[str(k) + '_precision'] = precision_at_k(y_test, y_test_predicted, k)
         results[str(k) + '_recall'] = recall_at_k(y_test, y_test_predicted, k)
     results['auc_roc'] = roc_auc_score(y_test, y_test_predicted)
     results['pr_curve'] = precision_recall_curve(y_test, y_test_predicted)
-    results['f1_score'] = f1
     return results
 '''
 the following functions are for unsupervised learning (kmeans) and should not
@@ -324,3 +321,16 @@ def split_cluster(df, x_cols, cluster_to_split, k):
     df.loc[df['pred_label'] == cluster_to_split, 'pred_label'] = \
             pd.Series(kmean.labels_, index=cluster.index) + unused_label
     return df
+
+def plot_precision_recall(recalls, precisions, thresholds):
+    #See https://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html
+    #plot recall and precision at different thresholds
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    
+    ax1.step(recalls[1:], thresholds, where='post')
+    ax2.step(precisions[1:], thresholds, where='post')
+    ax1.set_xlabel('recall')
+    ax1.set_ylabel('threshold')
+    ax2.set_xlabel('precision')
+    
+    fig.suptitle('Precision & Recall at different Thresholds')

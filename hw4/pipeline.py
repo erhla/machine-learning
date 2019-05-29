@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 from sklearn.model_selection import ParameterGrid
-from sklearn.metrics import f1_score, recall_score, precision_score, roc_auc_score, precision_recall_curve
+from sklearn.metrics import recall_score, precision_score, roc_auc_score, precision_recall_curve
 from sklearn import tree, svm
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
@@ -258,7 +258,6 @@ def evaluate_classifier(y_test, y_test_predicted):
         precision at different levels, recall at different levels,
         area under curve, and precision-recall curves).
     '''
-    f1 = f1_score(y_test, y_test_predicted)
     results = {}
     results['baseline'] = y_test.mean()
     k_lst = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
@@ -267,7 +266,6 @@ def evaluate_classifier(y_test, y_test_predicted):
         results[str(k) + '_recall'] = recall_at_k(y_test, y_test_predicted, k)
     results['auc_roc'] = roc_auc_score(y_test, y_test_predicted)
     results['pr_curve'] = precision_recall_curve(y_test, y_test_predicted)
-    results['f1_score'] = f1
     return results
 
 def create_clusters(df, x_cols, k):
