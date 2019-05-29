@@ -30,6 +30,7 @@ feature_dict = {'students_reached': 'discretized',
                }
 
 results = []
+
 for train_start in train_start_dates:
     test, train = pipeline.time_split(df, date_col, train_start, test_length, test_train_offset)
     train = pipeline.preprocess(train, cols_to_fill, cols_to_drop_nas)

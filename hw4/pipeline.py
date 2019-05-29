@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from ast import literal_eval
 from scipy import stats
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import recall_score, precision_score, roc_auc_score, precision_recall_curve
@@ -17,7 +18,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, \
                                 BaggingClassifier, AdaBoostClassifier
-
 #read/load data
 def read_load(file_path):
     '''
@@ -168,7 +168,7 @@ def generate_features(df, feature_dict, division_num):
     return df, feature_ls
 
 #build classifiers
-def build_models(x_test, y_test, x_train, y_train, models_to_run='all'):
+def build_models(x_test, y_test, x_train, y_train, models_to_run='all', return_preds=None):
     '''
     build_models takes a dataframe and specific columns and returns
     evaluated models
@@ -216,16 +216,20 @@ def build_models(x_test, y_test, x_train, y_train, models_to_run='all'):
             current['type'] = model_type
             current['parameters'] = p
             new_model = clone(models[model_type])
-            new_model.set_params(**p)
+            new_model.set_params(**p) #create new model and pass new parameters
             new_model.fit(x_train, y_train)
-            if model_type == 'SVM':
+            if model_type == 'SVM': #SVM has a different probability function
                 y_test_predicted = new_model.decision_function(x_test)
             else:
                 y_test_predicted = new_model.predict_proba(x_test)[:, 1]
-            evals = evaluate_classifier(y_test, y_test_predicted)
+            evals = evaluate_classifier(y_test, y_test_predicted) #get metrics
             for metric in evals:
                 current[metric] = evals[metric]
             results.append(current)
+            if return_preds: #flag to write predicted probabilities to csv
+                target_params = literal_eval(return_preds) #type checking
+                if target_params == p:
+                    return y_test_predicted
     return pd.DataFrame.from_records(results)
 
 #evaluate classifier
@@ -260,23 +264,27 @@ def evaluate_classifier(y_test, y_test_predicted):
     '''
     results = {}
     results['baseline'] = y_test.mean()
-    k_lst = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
+    k_lst = [1, 2, 5, 10, 20, 30, 50, 75, 100] #percent cutoffs
     for k in k_lst:
         results[str(k) + '_precision'] = precision_at_k(y_test, y_test_predicted, k)
         results[str(k) + '_recall'] = recall_at_k(y_test, y_test_predicted, k)
     results['auc_roc'] = roc_auc_score(y_test, y_test_predicted)
     results['pr_curve'] = precision_recall_curve(y_test, y_test_predicted)
     return results
-
+'''
+the following functions are for unsupervised learning (kmeans) and should not
+be used for any supervised learning
+'''
 def create_clusters(df, x_cols, k):
     '''
     creates clusters for given features and k total clusters
     returns original dataframe with a new column 'pred_label'
     that stores the clusters
     '''
-    kmean = KMeans(n_clusters=k).fit(df[x_cols])
-    df['pred_label'] = pd.Series(kmean.labels_, index=df.index)
-    return df
+    tmp = df.copy()
+    kmean = KMeans(n_clusters=k).fit(tmp[x_cols])
+    tmp['pred_label'] = pd.Series(kmean.labels_, index=tmp.index)
+    return tmp
 
 def explore_clusters(df, x_cols, y_col):
     '''
@@ -293,29 +301,49 @@ def explore_clusters_2(df, x_cols, y_col, importance_threshold):
     determine what features are most important for a given cluster above
     a threshold importance_threshold
     '''
+    filtered = df[x_cols + [y_col, 'pred_label']]
     for label, grouped in df.groupby('pred_label'):
         tmptree = tree.DecisionTreeClassifier(max_depth=4)
         tmptree.fit(grouped[x_cols], grouped[y_col])
-        print('\n\n', label, '\n\n')
+        print('\n', 'cluster: ', label, '(has', grouped.shape[0], 'values)', '\n', 'the following features have greatest feature importance:')
         for i, col in enumerate(x_cols):
             if tmptree.feature_importances_[i] > importance_threshold:
-                print(col, 'has feature importance: ', tmptree.feature_importances_[i])
+                print(col)
+        grouped = grouped[x_cols + [y_col, 'pred_label']]
+        mean_difs = (grouped[grouped['pred_label'] == label].mean() - filtered.mean()) / filtered.mean()
+        print('the following features have means greater than 50% different from the dataset average')
+        print(mean_difs[abs(mean_difs) > 0.5].sort_values() * 100)
 
 def merge_cluster(df, clusters_to_merge):
     '''
     merges all clusters in list clusters_to_merge into a new cluster
     '''
-    unused_label = max(df.pred_label) + 1
-    df.loc[df['pred_label'].isin(clusters_to_merge), 'pred_label'] = unused_label
-    return df
+    tmp = df.copy()
+    unused_label = max(tmp.pred_label) + 1
+    tmp.loc[tmp['pred_label'].isin(clusters_to_merge), 'pred_label'] = unused_label
+    return tmp
 
 def split_cluster(df, x_cols, cluster_to_split, k):
     '''
     splits clusters from cluster_to_split into k clusters
     '''
-    unused_label = max(df.pred_label) + 1
-    cluster = df[df['pred_label'] == cluster_to_split]
+    tmp = df.copy()
+    unused_label = max(tmp.pred_label) + 1
+    cluster = tmp[tmp['pred_label'] == cluster_to_split]
     kmean = KMeans(n_clusters=k).fit(cluster[x_cols])
-    df.loc[df['pred_label'] == cluster_to_split, 'pred_label'] = \
+    tmp.loc[tmp['pred_label'] == cluster_to_split, 'pred_label'] = \
             pd.Series(kmean.labels_, index=cluster.index) + unused_label
-    return df
+    return tmp
+
+def plot_precision_recall(recalls, precisions, thresholds):
+    #See https://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html
+    #plot recall and precision at different thresholds
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    
+    ax1.step(recalls[1:], thresholds, where='post')
+    ax2.step(precisions[1:], thresholds, where='post')
+    ax1.set_xlabel('recall')
+    ax1.set_ylabel('threshold')
+    ax2.set_xlabel('precision')
+    
+    fig.suptitle('Precision & Recall at different Thresholds')
